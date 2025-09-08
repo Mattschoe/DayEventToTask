@@ -8,15 +8,29 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+CALENDER_SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+TASKS_SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 def main():
-    credentials = getCredentials()
-    calenderID = getCalenderID()
-    assert credentials is not None and calenderID is not None
-    allDayEvents = loadTodayDailyEvents(credentials, calenderID)
+    allDayEvents = loadTodayDailyEvents(getCalendarCredentials(), getCalenderID())
+    insertIntoTasks(allDayEvents, getTasksCredentials())
 
+#Converts the daily events into tasks
+def insertIntoTasks(eventsToday, credentials):
+    try:
+        service = build("tasks", "v1", credentials=credentials)
+        #Creates a new list for the day
+        todaysList = service.tasklists().insert(body = {
+            "title": datetime.datetime.today().strftime("%d-%m-%Y")
+        }).execute()
 
+        for event in eventsToday:
+            service.tasks().insert(tasklist=todaysList.get("id"), body = {
+                "title": event["summary"],
+            }).execute()
+
+    except HttpError as error:
+        print(f"An error occurred: {error}")
 
 #Tries to load today's daily events
 def loadTodayDailyEvents(credentials, calendarID):
@@ -56,12 +70,35 @@ def loadTodayDailyEvents(credentials, calendarID):
 
 
 #Reads the API-access and returns the credentials
-def getCredentials():
+def getCalendarCredentials():
     credentials = None
 
     #If the user has already created a token
-    if os.path.exists('../data/token.json'):
-        credentials = Credentials.from_authorized_user_file("../data/token.json", SCOPES)
+    if os.path.exists('../data/calendarToken.json'):
+        credentials = Credentials.from_authorized_user_file("../data/calendarToken.json", CALENDER_SCOPES)
+
+    #If not, we let the user log in first
+    if not credentials or not credentials.valid:
+        if credentials and credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+        else:
+            print("No credentials file found for creating token, please provide the path for credentials:")
+            credPath = askUserForCredentials()
+            flow = InstalledAppFlow.from_client_secrets_file(credPath, CALENDER_SCOPES)
+            credentials = flow.run_local_server(port=0)
+            print("Saving credentials as token.json for next time...")
+            with open('../data/calendarToken.json', 'w') as token:
+                token.write(credentials.to_json())
+
+    return credentials
+
+#Reads the API-access and returns the credentials
+def getTasksCredentials():
+    credentials = None
+
+    #If the user has already created a token
+    if os.path.exists('../data/tasksToken.json'):
+        credentials = Credentials.from_authorized_user_file("../data/tasksToken.json", TASKS_SCOPES)
 
     #If not, we let the user log in first
     if not credentials or not credentials.valid:
@@ -70,13 +107,14 @@ def getCredentials():
         else:
             print("No credentials file found for creating token, please provide the path for credentials.json:")
             credPath = askUserForCredentials()
-            flow = InstalledAppFlow.from_client_secrets_file(credPath, SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(credPath, TASKS_SCOPES)
             credentials = flow.run_local_server(port=0)
             print("Saving credentials as token.json for next time...")
-            with open('../data/token.json', 'w') as token:
+            with open('../data/tasksToken.json', 'w') as token:
                 token.write(credentials.to_json())
 
     return credentials
+
 
 #Keeps asking user for a correct path to credentials
 def askUserForCredentials():
