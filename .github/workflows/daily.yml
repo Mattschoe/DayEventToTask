@@ -1,0 +1,52 @@
+#This workflow will run the program that adds a To-Do list for the day everyday at 08:00 UTC
+
+name: Daily Calendar -> Tasks sync
+
+on: 
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch: #So it can be manually run from actions tab to test
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3:11'
+
+      - name: Install dependencies from requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare data directory for env variables storage
+        run: mkdir -p data
+
+      - name: Write calendar token (if provided in secrets on Github)
+        run: |
+          if [ -n "${{ secrets.CALENDAR_TOKEN_B64 }}" ]; then
+            echo "Writing calendar token"
+            echo "${{ secrets.CALENDAR_TOKEN_B64 }}" | base64 --decode > data/calendarToken.json
+          else 
+            echo "CALENDAR_TOKEN_B64 not set."
+          fi
+
+      - name: Write tasks token (if provided in secrets on Github)
+        run: |
+          if [ -n "${{ secrets.TASKS_TOKEN_B64 }}" ]; then
+            echo "Writing tasks token..."
+            echo "${{ secrets.TASKS_TOKEN_B64 }}" | base64 --decode > data/tasksToken.json
+          else
+            echo "TASKS_TOKEN_B64 not set."
+          fi
+
+      - name: Runs script, creates To-Do
+        env:
+          CALENDAR_ID: ${{ secrets.CALENDER_ID }}
+        run: python main.py
