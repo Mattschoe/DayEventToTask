@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3:11'
+          python-version: '3.13'
 
       - name: Install dependencies from requirements.txt
         run: |
@@ -50,3 +50,4 @@ jobs:
         env:
           CALENDAR_ID: ${{ secrets.CALENDER_ID }}
         run: python main.py
+
