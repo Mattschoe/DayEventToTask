@@ -206,3 +206,5 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 /.idea
+src/CALENDAR_ID.b64
+src/CREDENTIAL_TOKEN.b64
